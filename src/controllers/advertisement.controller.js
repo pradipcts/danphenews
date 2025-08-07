@@ -29,55 +29,61 @@ export const getAdvertisement = asyncHandler(async (req, res, next) => {
 
 // ✅ Create a new advertisement (with optional image upload)
 export const createAdvertisement = asyncHandler(async (req, res, next) => {
+    console.log('[CREATE AD] Headers:', req.headers);
     console.log('[CREATE AD] Body:', req.body);
     console.log('[CREATE AD] File:', req.file);
 
+    // Validate required fields
+    const { title, url, position, startDate, endDate, isActive } = req.body;
+    if (!title || !url || !position || !startDate || !endDate) {
+        return res.status(400).json({
+            success: false,
+            message: 'Missing required fields: title, url, position, startDate, or endDate',
+        });
+    }
+
+    // Handle image upload
     let imageUrl = '';
     if (req.file) {
         imageUrl = req.file.path; // Cloudinary image URL
-    }
-
-    const token = req.cookies.token;
-    console.log('[CREATE AD] Token from cookies:', token);
-
-    if (!token) {
-        return res.status(401).json({
+        console.log('[CREATE AD] Image URL:', imageUrl);
+    } else {
+        return res.status(400).json({
             success: false,
-            message: 'Authentication token not found in cookies.',
+            message: 'Image is required',
         });
     }
 
-    let decoded;
+    // Prepare advertisement data
+    const advertisementData = {
+        title,
+        url,
+        position,
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+        isActive: isActive === 'true' || isActive === true, // Handle string/boolean
+        image: imageUrl,
+        // createdBy is omitted since no token/user is required
+    };
+
     try {
-        decoded = jwt.verify(token, process.env.JWT_SECRET);
-        console.log('[CREATE AD] Decoded token:', decoded);
+        const advertisement = await Advertisement.create(advertisementData);
+        console.log('[CREATE AD] Created advertisement:', advertisement);
+
+        res.status(201).json({
+            success: true,
+            data: advertisement,
+        });
     } catch (err) {
-        console.error('[CREATE AD] JWT verification error:', err.message);
-        return res.status(401).json({
+        console.error('[CREATE AD] Error:', err.message);
+        res.status(500).json({
             success: false,
-            message: 'Invalid or expired authentication token.',
+            message: 'Failed to create advertisement',
             error: err.message,
         });
     }
-
-    const userId = decoded.id || decoded.userId;
-    if (!userId) {
-        return res.status(401).json({
-            success: false,
-            message: 'Invalid token payload. User ID missing.',
-        });
-    }
-
-    req.body.createdBy = userId;
-    req.body.image = imageUrl;
-
-    const advertisement = await Advertisement.create(req.body);
-
-    res.status(201).json({
-        success: true,
-        data: advertisement,
-    });
 });
+
 
 // ✅ Update advertisement (with optional image replacement)
 export const updateAdvertisement = asyncHandler(async (req, res, next) => {
