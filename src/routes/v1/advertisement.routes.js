@@ -31,8 +31,6 @@ router.route('/')
         getAdvertisements
     )
     .post(
-        protect,
-        authorize('admin', 'editor'),
         handleImageUpload, // Using the handleImageUpload middleware
         createAdvertisement
     );
