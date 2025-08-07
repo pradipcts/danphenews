@@ -1,3 +1,7 @@
+// ------------------------------
+// Main Server Initialization File
+// ------------------------------
+
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
@@ -7,92 +11,70 @@ import mongoose from 'mongoose';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 
+// Load environment variables
 dotenv.config();
 
+// Internal Configs and Middleware
 import config from './src/config/index.js';
 import connectDB from './src/config/db.js';
 import v1Routes from './src/routes/v1/index.js';
 import errorMiddleware from './src/middlewares/error.middleware.js';
 
-// Initialize app
+// Initialize Express App
 const app = express();
-app.set('trust proxy', 1); // for Render/Vercel/Heroku
+app.set('trust proxy', 1); // Trust proxy headers for deployment (e.g., Vercel, Render)
 
 // Connect to MongoDB
 connectDB();
 
-// Apply rate limiting
+// Rate Limiting for all requests
 app.use(rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 1000,
     message: 'Too many requests, please try again later.',
 }));
 
-// Cookie parser
+// Cookie and Body Parsing
 app.use(cookieParser(process.env.COOKIE_SECRET));
-
-// Body parsing
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
-// Secure headers
+// Security Headers
 app.use(helmet());
 
-// ✅ Allowlist for CORS
+// CORS Configuration with Logging
 const allowedOrigins = [
     'http://localhost:3000',
-    'https://newsdaphe.vercel.app',   // <-- fixed this domain
-    'https://danphenews.vercel.app',   // You can keep both if needed
-    // daphenews.com
+    'https://newsdaphe.vercel.app',
+    'https://danphenews.vercel.app',
     'https://danphenews.com',
     'https://www.danphenews.com',
-
 ];
 
-// CORS middleware with logging
 app.use(cors({
     origin: (origin, callback) => {
-        console.log(`[CORS] Incoming request from origin: ${origin}`);
-        // Allow requests with no origin (like curl, Postman)
-        if (!origin) {
-            console.log('[CORS] No origin - allowed');
-            return callback(null, true);
-        }
-        if (allowedOrigins.includes(origin)) {
-            console.log(`[CORS] Origin allowed: ${origin}`);
-            return callback(null, true);
-        }
-        console.log(`[CORS] Origin NOT allowed: ${origin}`);
-        return callback(new Error('Not allowed by CORS'));
+        console.log(`[CORS] Origin: ${origin}`);
+        if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+        callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-    allowedHeaders: [
-        'Content-Type',
-        'Authorization',
-        'X-Requested-With',
-        'Accept',
-        'Origin'
-    ],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
     exposedHeaders: ['Set-Cookie', 'Date', 'ETag', 'X-RateLimit-Reset'],
     optionsSuccessStatus: 200,
-    maxAge: 600
+    maxAge: 600,
 }));
 
-// CORS error handler middleware (to catch errors from CORS)
+// CORS Error Handling
 app.use((err, req, res, next) => {
-    if (err && err.message === 'Not allowed by CORS') {
-        console.error('[CORS ERROR]', err.message, `Origin: ${req.headers.origin}`);
-        return res.status(403).json({
-            success: false,
-            message: 'CORS Error: This origin is not allowed.',
-            origin: req.headers.origin
-        });
+    if (err.message === 'Not allowed by CORS') {
+        console.error('[CORS ERROR]', err.message);
+        return res.status(403).json({ success: false, message: 'CORS Error', origin: req.headers.origin });
     }
     next(err);
 });
 
-// Custom security headers
+// Custom Security Headers
 app.use((req, res, next) => {
     res.removeHeader('X-Powered-By');
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -107,13 +89,13 @@ app.use((req, res, next) => {
     next();
 });
 
-// Logging all requests with origin info
+// Request Logging
 app.use(morgan(':method :url :status :res[content-length] - :response-time ms :remote-addr Origin=:req[origin]'));
 
-// Routes
+// Mount API Routes
 app.use('/api/v1', v1Routes);
 
-// Health Check
+// Health Check Route
 app.get('/health', (req, res) => {
     const dbStatus = mongoose.connection.readyState === 1 ? 'CONNECTED' : 'DISCONNECTED';
     res.status(200).json({
@@ -122,11 +104,11 @@ app.get('/health', (req, res) => {
         uptime: process.uptime(),
         database: dbStatus,
         memoryUsage: process.memoryUsage(),
-        nodeVersion: process.version
+        nodeVersion: process.version,
     });
 });
 
-// Root
+// Root Route
 app.get('/', (req, res) => {
     res.status(200).json({
         success: true,
@@ -134,11 +116,11 @@ app.get('/', (req, res) => {
         version: process.env.npm_package_version || '1.0.0',
         environment: config.env,
         documentation: `${config.clientUrl}/docs`,
-        uptime: process.uptime()
+        uptime: process.uptime(),
     });
 });
 
-// 404 handler
+// 404 Not Found Handler
 app.use('*', (req, res) => {
     res.status(404).json({
         success: false,
@@ -148,32 +130,30 @@ app.use('*', (req, res) => {
         suggestions: [
             '/api/v1/news',
             '/api/v1/auth/login',
-            '/api/v1/auth/register'
+            '/api/v1/auth/register',
+            '/api/v1/advertisements'
         ]
     });
 });
 
-// Global error handler
+// Global Error Handler
 app.use(errorMiddleware);
 
-// Start server
+// Start Server
 const PORT = config.port || 5000;
 const server = app.listen(PORT, () => {
     console.log(`🚀 Server running in ${config.env} mode on port ${PORT}`);
 });
 
-// Graceful shutdown handlers
+// Graceful Shutdown
 ['SIGTERM', 'SIGINT'].forEach(signal => {
     process.on(signal, () => {
-        console.log(`${signal} received. Shutting down gracefully...`);
-        server.close(() => {
-            console.log('Server closed');
-            process.exit(0);
-        });
+        console.log(`${signal} received. Shutting down...`);
+        server.close(() => process.exit(0));
     });
 });
 
-// Handle uncaught exceptions & rejections
+// Global Uncaught Error Handling
 process.on('unhandledRejection', (err) => {
     console.error('Unhandled Rejection:', err);
     server.close(() => process.exit(1));

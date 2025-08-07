@@ -2,18 +2,25 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import cors from 'cors';
-import mongoose from 'mongoose';               // <-- Add mongoose for health check
+import mongoose from 'mongoose';
 import config from '../../config/index.js';
 
-// Import route files
+// Import all route files
 import authRoutes from './auth.routes.js';
 import userRoutes from './user.routes.js';
-import newsRoutes from './news.routes.js';    // <-- Import news routes
+import newsRoutes from './news.routes.js';
+import advertisementRoutes from './advertisement.routes.js'; // ✅ Import advertisement routes
 
 const router = express.Router();
 
-// Security middleware
+// =====================
+// 🔒 Basic Middleware
+// =====================
+
+// Adds secure HTTP headers
 router.use(helmet());
+
+// Enable CORS with client whitelist
 router.use(
     cors({
         origin: config.clientUrl,
@@ -21,43 +28,55 @@ router.use(
     })
 );
 
-// Rate limiting
+// Rate limit configuration (applied to selected routes)
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 100,
     message: 'Too many requests from this IP, please try again after 15 minutes',
 });
 
-// Enhanced router validation
+// ==========================
+// ✅ Route Mounting Utility
+// ==========================
+
+/**
+ * Helper to validate and mount a given route.
+ */
 const validateAndMountRouter = (route, path) => {
     if (!route || typeof route.use !== 'function' || typeof route.handle !== 'function') {
-        throw new Error(`Invalid router for path ${path}`);
+        throw new Error(`Invalid router provided for path ${path}`);
     }
 
-    // Apply rate limiting to all routes except auth
+    // Apply rate limiting to all except auth
     if (path !== '/auth') {
         router.use(path, apiLimiter);
     }
 
     router.use(path, route);
-    console.log(`Successfully mounted routes for ${path}`);
+    console.log(`✅ Mounted route: ${path}`);
 };
 
-// Route mounting with error handling
+// =====================
+// 🚀 Mount All Routes
+// =====================
+
 try {
     validateAndMountRouter(authRoutes, '/auth');
     validateAndMountRouter(userRoutes, '/users');
-    validateAndMountRouter(newsRoutes, '/news');       // <-- Mount news routes
+    validateAndMountRouter(newsRoutes, '/news');
+    validateAndMountRouter(advertisementRoutes, '/advertisements'); // ✅ Mount advertisements route
 } catch (error) {
-    console.error('Route initialization failed:', error);
-    process.exit(1); // Exit if routes fail to mount
+    console.error('❌ Failed to initialize routes:', error.message);
+    process.exit(1); // Critical failure – exit the app
 }
 
-// API Documentation route
+// ======================
+// 📚 API Documentation
+// ======================
 router.get('/', (req, res) => {
     res.status(200).json({
         success: true,
-        message: 'News Portal API',
+        message: 'Danphe News API - v1',
         version: '1.0.0',
         endpoints: {
             auth: {
@@ -77,12 +96,23 @@ router.get('/', (req, res) => {
                 updateNews: 'PUT /api/v1/news/:id',
                 deleteNews: 'DELETE /api/v1/news/:id',
             },
+            advertisements: {
+                getAll: 'GET /api/v1/advertisements',
+                getById: 'GET /api/v1/advertisements/:id',
+                create: 'POST /api/v1/advertisements',
+                update: 'PUT /api/v1/advertisements/:id',
+                delete: 'DELETE /api/v1/advertisements/:id',
+                getByPosition: 'GET /api/v1/advertisements/position/:position',
+                click: 'PUT /api/v1/advertisements/:id/click'
+            }
         },
         documentation: `${config.clientUrl}/api-docs`,
     });
 });
 
-// Health check with system status
+// ==========================
+// 💓 Health Check Endpoint
+// ==========================
 router.get('/health', (req, res) => {
     res.status(200).json({
         status: 'OK',
@@ -93,7 +123,9 @@ router.get('/health', (req, res) => {
     });
 });
 
-// Enhanced 404 handler
+// ==========================
+// 🚫 404 - Not Found Handler
+// ==========================
 router.use((req, res) => {
     res.status(404).json({
         success: false,
@@ -109,7 +141,9 @@ router.use((req, res) => {
     });
 });
 
-// Production error handler
+// ==========================
+// ❌ Global Error Handler
+// ==========================
 const errorHandler = (err, req, res, next) => {
     const statusCode = err.statusCode || 500;
     const response = {
@@ -129,7 +163,6 @@ const errorHandler = (err, req, res, next) => {
         };
     }
 
-    // Log detailed error in development
     if (statusCode >= 500) {
         console.error('Server Error:', {
             error: err.stack,
