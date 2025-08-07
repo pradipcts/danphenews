@@ -1,6 +1,7 @@
 import Advertisement from '../models/advertisement.model.js';
 import ErrorResponse from '../utils/errorResponse.js';
 import asyncHandler from '../middlewares/async.js';
+import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
 
 // ✅ Get all advertisements
@@ -132,30 +133,51 @@ export const updateAdvertisement = asyncHandler(async (req, res, next) => {
 
 // ✅ Delete advertisement
 export const deleteAdvertisement = asyncHandler(async (req, res, next) => {
-    const advertisement = await Advertisement.findById(req.params.id);
+    const { id } = req.params;
 
-    if (!advertisement) {
-        return next(
-            new ErrorResponse(`Advertisement not found with id of ${req.params.id}`, 404)
-        );
+    // Validate the ID
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({
+            success: false,
+            message: 'Invalid advertisement ID format'
+        });
     }
 
-    if (
-        advertisement.createdBy.toString() !== req.user.id &&
-        req.user.role !== 'admin'
-    ) {
-        return next(
-            new ErrorResponse(`User ${req.user.id} is not authorized to delete this advertisement`, 401)
-        );
+    try {
+        // OPTION 1: Using find + deleteOne (better for pre-delete logic)
+        const advertisement = await Advertisement.findById(id);
+
+        if (!advertisement) {
+            return res.status(404).json({
+                success: false,
+                message: 'Advertisement not found'
+            });
+        }
+
+        await advertisement.deleteOne(); // Fixed: Using deleteOne instead of remove
+
+        // OPTION 2: Using findByIdAndDelete (more concise)
+        // const result = await Advertisement.findByIdAndDelete(id);
+        // if (!result) {
+        //     return res.status(404).json({
+        //         success: false,
+        //         message: 'Advertisement not found'
+        //     });
+        // }
+
+        res.status(200).json({
+            success: true,
+            message: 'Advertisement deleted successfully'
+        });
+
+    } catch (error) {
+        console.error('[DELETE AD] Error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to delete advertisement',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
     }
-
-    // Use deleteOne instead of remove()
-    await advertisement.deleteOne();
-
-    res.status(200).json({
-        success: true,
-        data: {},
-    });
 });
 
 
