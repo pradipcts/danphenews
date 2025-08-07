@@ -88,46 +88,67 @@ export const createAdvertisement = asyncHandler(async (req, res, next) => {
 
 // ✅ Update advertisement (with optional image replacement)
 export const updateAdvertisement = asyncHandler(async (req, res, next) => {
-    console.log('[UPDATE AD] Params:', req.params);
-    console.log('[UPDATE AD] Body:', req.body);
-    console.log('[UPDATE AD] File:', req.file);
+    const { adId } = req.params;
 
-    // Find the existing advertisement
-    let advertisement = await Advertisement.findById(req.params.id);
-    if (!advertisement) {
-        return next(
-            new ErrorResponse(`Advertisement not found with id of ${req.params.id}`, 404)
+    // Validate advertisement ID
+    if (!mongoose.Types.ObjectId.isValid(adId)) {
+        return res.status(400).json({
+            success: false,
+            message: 'Invalid advertisement ID format'
+        });
+    }
+
+    try {
+        // Find the existing advertisement
+        const existingAd = await Advertisement.findById(adId);
+        if (!existingAd) {
+            return res.status(404).json({
+                success: false,
+                message: 'Advertisement not found'
+            });
+        }
+
+        // Process the update data
+        const updateData = {
+            title: req.body.title,
+            url: req.body.url,
+            position: req.body.position,
+            startDate: new Date(req.body.startDate),
+            endDate: new Date(req.body.endDate),
+            isActive: req.body.isActive === 'true'
+        };
+
+        // Handle image upload if new image was provided
+        if (req.file) {
+            // Upload new image to Cloudinary (or your storage service)
+            const uploadResult = await uploadToCloudinary(req.file.path);
+            updateData.image = uploadResult.secure_url;
+
+            // Optional: Delete old image from storage
+            // await deleteFromCloudinary(existingAd.image);
+        }
+
+        // Update the advertisement
+        const updatedAd = await Advertisement.findByIdAndUpdate(
+            adId,
+            updateData,
+            { new: true, runValidators: true }
         );
+
+        res.status(200).json({
+            success: true,
+            message: 'Advertisement updated successfully',
+            data: updatedAd
+        });
+
+    } catch (error) {
+        console.error('[UPDATE AD] Error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to update advertisement',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
     }
-
-    // Authorization check (assumes req.user is set)
-    if (
-        advertisement.createdBy.toString() !== req.user.id &&
-        req.user.role !== 'admin'
-    ) {
-        return next(
-            new ErrorResponse(`User ${req.user.id} is not authorized to update this advertisement`, 403)
-        );
-    }
-
-    // Update fields manually
-    if (req.body.title !== undefined) advertisement.title = req.body.title;
-    if (req.body.url !== undefined) advertisement.url = req.body.url;
-    if (req.body.position !== undefined) advertisement.position = req.body.position;
-    if (req.body.startDate !== undefined) advertisement.startDate = new Date(req.body.startDate);
-    if (req.body.endDate !== undefined) advertisement.endDate = new Date(req.body.endDate);
-
-    if (req.file) {
-        advertisement.image = req.file.path; // Cloudinary image URL
-    }
-
-    // Save document — runs all validators properly
-    await advertisement.save();
-
-    res.status(200).json({
-        success: true,
-        data: advertisement,
-    });
 });
 
 
