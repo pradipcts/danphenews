@@ -25,13 +25,13 @@ import { handleImageUpload } from '../../middlewares/upload.js'; // Updated to u
 // @access  Private (Admin/Editor)
 router.route('/')
     .get(
-        protect,
-        authorize('admin', 'editor'),
-        advancedResults(Advertisement, 'createdBy'),
+        advancedResults(Advertisement, 'createdBy'), // Public GET route
         getAdvertisements
     )
     .post(
-        handleImageUpload, // Using the handleImageUpload middleware
+        protect,               // Protect POST route
+        authorize('admin', 'editor'),
+        handleImageUpload,
         createAdvertisement
     );
 
