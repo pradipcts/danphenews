@@ -37,6 +37,7 @@ const allowedOrigins = [
     'https://soe-notes.vercel.app',
     'https://quiz.fwu.daphenews.com',
     'https://entrance.fwu.daphenews.com',
+    'https://damphenews.vercel.app',
     ...envOrigins
 ];
 

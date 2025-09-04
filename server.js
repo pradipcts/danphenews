@@ -2,23 +2,23 @@
 // Main Server Initialization File
 // ------------------------------
 
-import express from 'express';
-import cors from 'cors';
-import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
+import cors from 'cors';
 import dotenv from 'dotenv';
-import mongoose from 'mongoose';
-import helmet from 'helmet';
+import express from 'express';
 import rateLimit from 'express-rate-limit';
+import helmet from 'helmet';
+import mongoose from 'mongoose';
+import morgan from 'morgan';
 
 // Load environment variables
 dotenv.config();
 
 // Internal Configs and Middleware
-import config from './src/config/index.js';
 import connectDB from './src/config/db.js';
-import v1Routes from './src/routes/v1/index.js';
+import config from './src/config/index.js';
 import errorMiddleware from './src/middlewares/error.middleware.js';
+import v1Routes from './src/routes/v1/index.js';
 
 // Initialize Express App
 const app = express();
@@ -49,6 +49,9 @@ const allowedOrigins = [
     'https://danphenews.vercel.app',
     'https://danphenews.com',
     'https://www.danphenews.com',
+    'https://damphenews.vercel.app',
+    'https://damphenews.com',
+    'https://www.damphenews.com',
 ];
 
 app.use(cors({
