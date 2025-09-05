@@ -2,19 +2,19 @@ import express from 'express';
 const router = express.Router();
 
 import {
-    getAdvertisements,
-    getAdvertisement,
     createAdvertisement,
-    updateAdvertisement,
     deleteAdvertisement,
     getAdsByPosition,
+    getAdvertisement,
+    getAdvertisements,
     recordAdClick,
+    updateAdvertisement,
 } from '../../controllers/advertisement.controller.js';
 
-import { protect, authorize } from '../../middlewares/auth.middleware.js';
 import { advancedResults } from '../../middlewares/advancedresults.middleware.js';
-import Advertisement from '../../models/advertisement.model.js';
+import { authorize, protect } from '../../middlewares/auth.middleware.js';
 import { handleImageUpload } from '../../middlewares/upload.js'; // Updated to use handleImageUpload
+import Advertisement from '../../models/advertisement.model.js';
 
 // ==========================
 // 🔒 Admin/Editor API Routes
@@ -29,8 +29,6 @@ router.route('/')
         getAdvertisements
     )
     .post(
-        protect,               // Protect POST route
-        authorize('admin', 'editor'),
         handleImageUpload,
         createAdvertisement
     );
