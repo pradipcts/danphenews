@@ -13,52 +13,53 @@ import {
 
 import { advancedResults } from '../../middlewares/advancedresults.middleware.js';
 import { authorize, protect } from '../../middlewares/auth.middleware.js';
-import { handleImageUpload } from '../../middlewares/upload.js'; // Updated to use handleImageUpload
+import { handleImageUpload } from '../../middlewares/upload.js';
 import Advertisement from '../../models/advertisement.model.js';
 
 // ==========================
-// 🔒 Admin/Editor API Routes
+// Public API Routes
 // ==========================
 
-// @route   GET /api/v1/advertisements
-// @desc    Get all advertisements with advanced filtering
-// @access  Private (Admin/Editor)
-router.route('/')
-    .get(
-        advancedResults(Advertisement, 'createdBy'), // Public GET route
-        getAdvertisements
-    )
-    .post(
-        handleImageUpload,
-        createAdvertisement
-    );
+// GET all ads - public
+router.get(
+    '/',
+    advancedResults(Advertisement, 'createdBy'),
+    getAdvertisements
+);
 
-// @route   /api/v1/advertisements/:id
-// @desc    Single ad operations (read/update/delete)
-// @access  Private (Admin/Editor)
-router.route('/:id')
-    .get(protect, authorize('admin', 'editor'), getAdvertisement)
-    .put(
-        protect,
-        authorize('admin', 'editor'),
-        handleImageUpload, // Using the handleImageUpload middleware
-        updateAdvertisement
-    )
-    .delete(protect, authorize('admin', 'editor'), deleteAdvertisement);
+// POST new ad - public
+router.post(
+    '/',
+    handleImageUpload,
+    createAdvertisement
+);
 
-// ==========================
-// 🌐 Public API Routes
-// ==========================
+// GET single ad - public
+router.get('/:id', getAdvertisement);
 
-// @route   GET /api/v1/advertisements/position/:position
-// @desc    Get active ads by position (e.g., 'header', 'sidebar')
-// @access  Public
+// Get ads by position - public
 router.get('/position/:position', getAdsByPosition);
 
-// @route   PUT /api/v1/advertisements/:id/click
-// @desc    Record an ad click
-// @access  Public
+// Record ad click - public
 router.put('/:id/click', recordAdClick);
+
+// ==========================
+// Protected API Routes (PUT & DELETE)
+// ==========================
+router.put(
+    '/:id',
+    protect,
+    authorize('admin', 'editor'),
+    handleImageUpload,
+    updateAdvertisement
+);
+
+router.delete(
+    '/:id',
+    protect,
+    authorize('admin', 'editor'),
+    deleteAdvertisement
+);
 
 // ==========================
 // 🧪 Test Route (Dev only)
@@ -69,8 +70,8 @@ if (process.env.NODE_ENV === 'development') {
             success: true,
             message: 'Advertisement routes are working!',
             timestamp: new Date().toISOString(),
-            version: '1.1',
-            note: 'Now using handleImageUpload middleware'
+            version: '1.2',
+            note: 'GET & POST routes are public; PUT & DELETE are protected'
         });
     });
 }
