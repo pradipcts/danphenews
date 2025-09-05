@@ -1,8 +1,8 @@
+import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
+import asyncHandler from '../middlewares/async.js';
 import Advertisement from '../models/advertisement.model.js';
 import ErrorResponse from '../utils/errorResponse.js';
-import asyncHandler from '../middlewares/async.js';
-import mongoose from 'mongoose';
-import jwt from 'jsonwebtoken';
 
 // ✅ Get all advertisements
 export const getAdvertisements = asyncHandler(async (req, res, next) => {
@@ -29,6 +29,7 @@ export const getAdvertisement = asyncHandler(async (req, res, next) => {
 });
 
 // ✅ Create a new advertisement (with optional image upload)
+// ✅ Create a new advertisement (with optional image upload)
 export const createAdvertisement = asyncHandler(async (req, res, next) => {
     console.log('[CREATE AD] Headers:', req.headers);
     console.log('[CREATE AD] Body:', req.body);
@@ -46,13 +47,29 @@ export const createAdvertisement = asyncHandler(async (req, res, next) => {
     // Handle image upload
     let imageUrl = '';
     if (req.file) {
-        imageUrl = req.file.path; // Cloudinary image URL
+        imageUrl = req.file.path; // Cloudinary image URL or local path
         console.log('[CREATE AD] Image URL:', imageUrl);
     } else {
         return res.status(400).json({
             success: false,
             message: 'Image is required',
         });
+    }
+
+    // =====================
+    // Extract token (cookies first, then Authorization header)
+    // =====================
+    let createdBy = 'anonymous'; // default if no token
+    let token = req.cookies?.token || req.headers.authorization?.split(' ')[1];
+
+    if (token) {
+        try {
+            const decoded = jwt.verify(token, config.jwtSecret);
+            createdBy = decoded.id; // assuming JWT payload has user id
+            console.log('[CREATE AD] Authenticated user:', createdBy);
+        } catch (err) {
+            console.warn('[CREATE AD] Invalid token, proceeding as anonymous');
+        }
     }
 
     // Prepare advertisement data
@@ -62,9 +79,9 @@ export const createAdvertisement = asyncHandler(async (req, res, next) => {
         position,
         startDate: new Date(startDate),
         endDate: new Date(endDate),
-        isActive: isActive === 'true' || isActive === true, // Handle string/boolean
+        isActive: isActive === 'true' || isActive === true,
         image: imageUrl,
-        // createdBy is omitted since no token/user is required
+        createdBy,
     };
 
     try {
